@@ -1,3 +1,10 @@
+"ConnectionStrings": {
+    "DefaultConnection": "Server=TU_SERVIDOR_AQUI;Database=SistemaBancario;Integrated Security=True;TrustServerCertificate=True;"
+  },
+
+Server=TU_SERVIDOR_AQUI;Database=SistemaBancario;User Id=sa;Password=TuClave!;TrustServerCertificate=True;
+
+
 -- 2. Crear tabla de Clientes con campos de auditoría (Estilo ASFI)
 CREATE TABLE Clientes (
     Id INT IDENTITY(1,1) PRIMARY KEY,
