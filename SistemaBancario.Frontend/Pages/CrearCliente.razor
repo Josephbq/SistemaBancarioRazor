@@ -1,0 +1,115 @@
+﻿@page "/clientes/crear"
+@using SistemaBancario.Frontend.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow border-0 rounded-4">
+                <div class="card-header bg-dark text-white py-3 border-0 rounded-top-4">
+                    <h4 class="mb-0 fw-bold"><i class="bi bi-person-plus"></i> Apertura de Cuenta de Cliente</h4>
+                    <small class="text-white-50">Registro en Plataforma ASFI</small>
+                </div>
+                
+                <div class="card-body p-4 bg-light">
+                    @if (!string.IsNullOrEmpty(mensajeError))
+                    {
+                        <div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill"></i> @mensajeError</div>
+                    }
+
+                    <!-- EditForm maneja las validaciones basadas en el DTO -->
+                    <EditForm Model="@nuevoCliente" OnValidSubmit="GuardarCliente">
+                        <DataAnnotationsValidator />
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Nombres</label>
+                                <InputText @bind-Value="nuevoCliente.Nombres" class="form-control" placeholder="Ej: Juan Carlos" />
+                                <ValidationMessage For="@(() => nuevoCliente.Nombres)" class="text-danger small" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Apellidos</label>
+                                <InputText @bind-Value="nuevoCliente.Apellidos" class="form-control" placeholder="Ej: Pérez" />
+                                <ValidationMessage For="@(() => nuevoCliente.Apellidos)" class="text-danger small" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Documento de Identidad (C.I.)</label>
+                                <InputText @bind-Value="nuevoCliente.DocumentoIdentidad" class="form-control" placeholder="Ej: 6543210 LP" />
+                                <ValidationMessage For="@(() => nuevoCliente.DocumentoIdentidad)" class="text-danger small" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Depósito Inicial (Bs.)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text fw-bold">Bs.</span>
+                                    <InputNumber @bind-Value="nuevoCliente.Saldo" class="form-control text-end" />
+                                </div>
+                                <ValidationMessage For="@(() => nuevoCliente.Saldo)" class="text-danger small" />
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <button type="button" class="btn btn-outline-secondary btn-lg" @onclick="Cancelar">Cancelar</button>
+                            <button type="submit" class="btn btn-primary btn-lg shadow-sm" disabled="@procesando">
+                                @if (procesando)
+                                {
+                                    <span class="spinner-border spinner-border-sm"></span>
+                                }
+                                else
+                                {
+
+                                    <i class="bi bi-save"></i>
+                                    <span>Registrar Cliente</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ClienteDto nuevoCliente = new ClienteDto();
+    private string mensajeError = "";
+    private bool procesando = false;
+
+    private async Task GuardarCliente()
+    {
+        procesando = true;
+        mensajeError = "";
+
+        try
+        {
+            // Enviamos el POST a la API
+            var response = await Http.PostAsJsonAsync("api/clientes", nuevoCliente);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                // Si todo sale bien, regresamos a la lista
+                Navigation.NavigateTo("/clientes");
+            }
+            else
+            {
+                mensajeError = "No se pudo registrar el cliente. Verifique que el C.I. no esté duplicado.";
+            }
+        }
+        catch (Exception)
+        {
+            mensajeError = "Error de conexión con el servidor bancario.";
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private void Cancelar()
+    {
+        Navigation.NavigateTo("/clientes");
+    }
+}

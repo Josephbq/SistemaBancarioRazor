@@ -1,0 +1,141 @@
+﻿@page "/retirar"
+@using SistemaBancario.Frontend.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-header bg-secondary text-white py-3 text-center border-0 rounded-top-4">
+                    <h4 class="mb-0 fw-bold"><i class="bi bi-cash-stack"></i> Retiro de Efectivo</h4>
+                    <small>Dispensación rápida de fondos</small>
+                </div>
+
+                <div class="card-body p-4 bg-light">
+                    @if (!string.IsNullOrEmpty(mensajeError))
+                    {
+                        <div class="alert alert-danger"><i class="bi bi-x-circle-fill"></i> @mensajeError</div>
+                    }
+                    @if (!string.IsNullOrEmpty(mensajeExito))
+                    {
+                        <div class="alert alert-success"><i class="bi bi-check-circle-fill"></i> @mensajeExito</div>
+                    }
+
+                    @if (cuentasDisponibles == null)
+                    {
+                        <div class="text-center my-4"><div class="spinner-border text-secondary"></div></div>
+                    }
+                    else
+                    {
+                        <EditForm Model="@modelo" OnValidSubmit="EjecutarRetiro">
+                            <DataAnnotationsValidator />
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-secondary">Cuenta a debitar</label>
+                                <InputSelect @bind-Value="modelo.CuentaId" class="form-select form-select-lg shadow-sm">
+                                    <option value="0">-- Seleccione su cuenta --</option>
+                                    @foreach (var cuenta in cuentasDisponibles)
+                                    {
+                                        <option value="@cuenta.Id">@cuenta.NumeroCuenta - (Bs. @cuenta.Saldo)</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => modelo.CuentaId)" class="text-danger small" />
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-secondary">Monto a Retirar</label>
+                                <div class="input-group input-group-lg shadow-sm">
+                                    <span class="input-group-text bg-white fw-bold">Bs.</span>
+                                    <InputNumber @bind-Value="modelo.Monto" class="form-control text-end fw-bold" placeholder="0.00" />
+                                </div>
+                                <ValidationMessage For="@(() => modelo.Monto)" class="text-danger small" />
+                            </div>
+
+                            <div class="d-grid gap-2 mt-5">
+                                <button type="submit" class="btn btn-secondary btn-lg shadow" disabled="@procesando">
+                                    @if (procesando)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    else
+                                    {
+
+                                        <i class="bi bi-cash"></i>
+                                        <span>Autorizar Retiro</span>
+                                    }
+                                </button>
+                                <button type="button" class="btn btn-outline-dark" @onclick="Volver">Cancelar</button>
+                            </div>
+                        </EditForm>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RetiroDto modelo = new RetiroDto();
+    private CuentaDto[] cuentasDisponibles;
+    
+    private string mensajeError = "";
+    private string mensajeExito = "";
+    private bool procesando = false;
+    private int clienteLogueadoId = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Reutilizamos el endpoint que ya existía para cargar el combo desplegable
+        cuentasDisponibles = await Http.GetFromJsonAsync<CuentaDto[]>($"api/transferencias/cuentas/{clienteLogueadoId}");
+    }
+
+    private async Task EjecutarRetiro()
+    {
+        procesando = true;
+        mensajeError = "";
+        mensajeExito = "";
+
+        if (modelo.CuentaId == 0)
+        {
+            mensajeError = "Debe seleccionar una cuenta válida.";
+            procesando = false;
+            return;
+        }
+
+        try
+        {
+            // Apuntamos a la nueva ruta /retiro que agregamos en el controlador
+            var response = await Http.PostAsJsonAsync("api/transferencias/retiro", modelo);
+
+            if (response.IsSuccessStatusCode)
+            {
+                mensajeExito = $"Por favor, retire su dinero de la bandeja.";
+                modelo = new RetiroDto(); // Limpiamos el formulario
+                
+                // Refrescamos los saldos para que el usuario vea su nuevo monto actual
+                cuentasDisponibles = await Http.GetFromJsonAsync<CuentaDto[]>($"api/transferencias/cuentas/{clienteLogueadoId}");
+            }
+            else
+            {
+                var errorResult = await response.Content.ReadFromJsonAsync<RespuestaError>();
+                mensajeError = errorResult?.Mensaje ?? "Retiro denegado.";
+            }
+        }
+        catch (Exception)
+        {
+            mensajeError = "Error de comunicación con el banco.";
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private void Volver()
+    {
+        Navigation.NavigateTo("/mi-resumen");
+    }
+
+    private class RespuestaError { public string Mensaje { get; set; } }
+}

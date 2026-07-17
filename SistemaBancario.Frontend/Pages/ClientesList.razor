@@ -1,0 +1,117 @@
+﻿@page "/clientes"
+@using SistemaBancario.Frontend.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center pb-3 mb-4 border-bottom">
+        <div>
+            <h2 class="text-primary fw-bold"><i class="bi bi-shield-check"></i> Panel de Administración</h2>
+            <p class="text-muted mb-0">Gestión de Clientes ASFI</p>
+        </div>
+        <!-- Botón para ir a crear cliente -->
+        <button class="btn btn-primary btn-lg shadow-sm" @onclick="IrACrear">
+            <i class="bi bi-person-plus-fill"></i> Nuevo Cliente
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(mensajeAlerta))
+    {
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            @mensajeAlerta
+            <button type="button" class="btn-close" @onclick="() => mensajeAlerta = null"></button>
+        </div>
+    }
+
+    @if (clientes == null)
+    {
+        <div class="text-center mt-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 text-center">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>C.I.</th>
+                            <th class="text-start">Cliente</th>
+                            <th>Saldo (Bs.)</th>
+                            <th>Acciones Bancarias</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in clientes)
+                        {
+                            <tr>
+                                <td class="fw-bold">@item.DocumentoIdentidad</td>
+                                <td class="text-start">@item.Nombres @item.Apellidos</td>
+                                <td class="text-success fw-bold">@item.Saldo.ToString("N2")</td>
+                                <td>
+                                    <!-- Botones de Acción -->
+                                    <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => IrAEditar(item.Id)">
+                                        <i class="bi bi-pencil-square"></i> Editar
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DarDeBaja(item.Id, item.Nombres)">
+                                        <i class="bi bi-person-x-fill"></i> Suspender
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private ClienteDto[] clientes;
+    private string mensajeAlerta = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarClientes();
+    }
+
+    private async Task CargarClientes()
+    {
+        clientes = await Http.GetFromJsonAsync<ClienteDto[]>("api/clientes");
+    }
+
+    private void IrACrear()
+    {
+        Navigation.NavigateTo("/clientes/crear");
+    }
+
+    private void IrAEditar(int id)
+    {
+        // En un proyecto completo, aquí navegarías a "/clientes/editar/{id}"
+        Navigation.NavigateTo($"/clientes/editar/{id}");
+    }
+
+    // Lógica para enviar el PUT de borrado lógico a la API
+    private async Task DarDeBaja(int id, string nombre)
+    {
+        // En un caso real usarías un modal o librerías como SweetAlert2 para confirmar
+        try
+        {
+            // Ejecutamos el endpoint de baja que creamos en la API
+            var response = await Http.PutAsync($"api/clientes/baja/{id}", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                mensajeAlerta = $"La cuenta de {nombre} ha sido suspendida correctamente (Auditoría ASFI).";
+                await CargarClientes(); // Recargar la tabla
+            }
+            else
+            {
+                mensajeAlerta = "No se pudo suspender la cuenta.";
+            }
+        }
+        catch (Exception)
+        {
+            mensajeAlerta = "Error de red al intentar conectar con el servidor.";
+        }
+    }
+}

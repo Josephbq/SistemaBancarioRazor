@@ -1,0 +1,109 @@
+﻿@page "/mi-resumen"
+@using SistemaBancario.Frontend.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation // Para navegar entre páginas
+
+<div class="container mt-4">
+    @if (dashboard == null)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border text-success" role="status"></div>
+            <p class="mt-2 text-muted fw-bold">Cargando perfil financiero...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Cabecera y Botón de Admin -->
+        <div class="row mb-4 align-items-center">
+            <div class="col-md-8">
+                <h2 class="fw-bold text-dark">Hola, @dashboard.NombreCompleto</h2>
+                <p class="text-muted">C.I. @dashboard.DocumentoIdentidad | Cliente Verificado</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-outline-danger shadow-sm" @onclick="IrAPanelAdmin">
+                    <i class="bi bi-gear-fill"></i> Panel de Administración
+                </button>
+            </div>
+        </div>
+
+        <!-- Patrimonio Total -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card bg-dark text-white shadow rounded-4 overflow-hidden border-0">
+                    <div class="card-body p-4 position-relative">
+                        <h6 class="text-white-50 fw-semibold">Patrimonio Total Consolidado</h6>
+                        <h1 class="display-5 fw-bold mb-0">Bs. @dashboard.PatrimonioTotal.ToString("N2")</h1>
+                        <i class="bi bi-wallet2 position-absolute opacity-25" style="font-size: 6rem; right: 2rem; top: -1rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acciones Rápidas -->
+        <div class="d-flex gap-3 mb-5">
+            <button class="btn btn-primary btn-lg px-4 shadow-sm" @onclick="NuevaTransferencia">
+                <i class="bi bi-send-fill"></i> Transferir Dinero
+            </button>
+            <button class="btn btn-secondary btn-lg px-4 shadow-sm" @onclick="NuevoRetiro">
+                <i class="bi bi-cash-stack"></i> Retiro sin Tarjeta
+            </button>
+        </div>
+
+        <h5 class="fw-bold mb-3 border-bottom pb-2">Mis Cuentas Activas</h5>
+
+        <!-- Tarjetas de Cuentas -->
+        <div class="row g-4">
+            @foreach (var cuenta in dashboard.Cuentas)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="card shadow-sm border-0 h-100 rounded-4">
+                        <div class="card-body p-4">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill mb-3">
+                                Activa
+                            </span>
+                            <h6 class="text-muted mb-1 fs-7 text-uppercase">@cuenta.TipoCuenta</h6>
+                            <h5 class="fw-bold text-dark mb-4">@cuenta.NumeroCuenta</h5>
+                            
+                            <p class="text-muted small mb-0">Saldo Disponible</p>
+                            <h3 class="fw-bold text-success mb-0">Bs. @cuenta.Saldo.ToString("N2")</h3>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private DashboardDto dashboard;
+    private int clienteLogueadoId = 1; // Simulación de sesión
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            dashboard = await Http.GetFromJsonAsync<DashboardDto>($"api/dashboard/{clienteLogueadoId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error obteniendo dashboard: {ex.Message}");
+        }
+    }
+
+    // Métodos de navegación
+    private void IrAPanelAdmin()
+    {
+        Navigation.NavigateTo("/clientes"); // Navega a la lista de clientes que hicimos antes
+    }
+
+    private void NuevaTransferencia()
+    {
+        Navigation.NavigateTo("/transferir"); // Ruta que crearemos luego
+    }
+
+    private void NuevoRetiro()
+    {
+        // Ruta para retiros (demostración)
+        Navigation.NavigateTo("/retirar");
+    }
+}

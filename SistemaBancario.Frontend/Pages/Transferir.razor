@@ -1,0 +1,160 @@
+﻿@page "/transferir"
+@using SistemaBancario.Frontend.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-header bg-success text-white py-3 text-center border-0 rounded-top-4">
+                    <h4 class="mb-0 fw-bold"><i class="bi bi-arrow-left-right"></i> Transferencia Segura</h4>
+                    <small><i class="bi bi-shield-lock-fill"></i> Conexión encriptada vía API REST</small>
+                </div>
+
+                <div class="card-body p-4 bg-light">
+                    <!-- Alertas de mensajes -->
+                    @if (!string.IsNullOrEmpty(mensajeError))
+                    {
+                        <div class="alert alert-danger"><i class="bi bi-x-circle-fill"></i> @mensajeError</div>
+                    }
+                    @if (!string.IsNullOrEmpty(mensajeExito))
+                    {
+                        <div class="alert alert-success"><i class="bi bi-check-circle-fill"></i> @mensajeExito</div>
+                    }
+
+                    @if (cuentasDisponibles == null)
+                    {
+                        <div class="text-center my-4"><div class="spinner-border text-success"></div></div>
+                    }
+                    else
+                    {
+                        <!-- Formulario nativo de Blazor -->
+                        <EditForm Model="@modelo" OnValidSubmit="EjecutarTransferencia">
+                            <DataAnnotationsValidator />
+
+                            <!-- Cuenta Origen -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-secondary">Cuenta de Origen (Débito)</label>
+                                <InputSelect @bind-Value="modelo.IdCuentaOrigen" class="form-select form-select-lg shadow-sm">
+                                    <option value="0">-- Seleccione cuenta origen --</option>
+                                    @foreach (var cuenta in cuentasDisponibles)
+                                    {
+                                        <option value="@cuenta.Id">@cuenta.NumeroCuenta - (Bs. @cuenta.Saldo)</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => modelo.IdCuentaOrigen)" class="text-danger small" />
+                            </div>
+
+                            <!-- Cuenta Destino -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-secondary">Cuenta de Destino (Crédito)</label>
+                                <InputSelect @bind-Value="modelo.IdCuentaDestino" class="form-select form-select-lg shadow-sm">
+                                    <option value="0">-- Seleccione cuenta destino --</option>
+                                    @foreach (var cuenta in cuentasDisponibles)
+                                    {
+                                        <option value="@cuenta.Id">@cuenta.NumeroCuenta</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => modelo.IdCuentaDestino)" class="text-danger small" />
+                            </div>
+
+                            <!-- Monto -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-secondary">Monto a Transferir</label>
+                                <div class="input-group input-group-lg shadow-sm">
+                                    <span class="input-group-text bg-white fw-bold text-success">Bs.</span>
+                                    <InputNumber @bind-Value="modelo.Monto" class="form-control text-end fw-bold" placeholder="0.00" />
+                                </div>
+                                <ValidationMessage For="@(() => modelo.Monto)" class="text-danger small" />
+                            </div>
+
+                            <div class="d-grid gap-2 mt-5">
+                                <button type="submit" class="btn btn-success btn-lg shadow" disabled="@procesando">
+                                    @if (procesando)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span> <span>Procesando en el Banco...</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-check-circle-fill"></i> <span>Confirmar Transferencia</span>
+                                    }
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="Volver">Cancelar</button>
+                            </div>
+                        </EditForm>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private TransferenciaDto modelo = new TransferenciaDto();
+    private CuentaDto[] cuentasDisponibles;
+    
+    private string mensajeError = "";
+    private string mensajeExito = "";
+    private bool procesando = false;
+    
+    // Simulación del cliente actual
+    private int clienteLogueadoId = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Al cargar la página, pedimos a la API las cuentas del cliente
+        cuentasDisponibles = await Http.GetFromJsonAsync<CuentaDto[]>($"api/transferencias/cuentas/{clienteLogueadoId}");
+    }
+
+    private async Task EjecutarTransferencia()
+    {
+        procesando = true;
+        mensajeError = "";
+        mensajeExito = "";
+
+        if (modelo.IdCuentaOrigen == 0 || modelo.IdCuentaDestino == 0)
+        {
+            mensajeError = "Debe seleccionar ambas cuentas.";
+            procesando = false;
+            return;
+        }
+
+        try
+        {
+            // 2. Enviamos el JSON mediante un POST a la API
+            var response = await Http.PostAsJsonAsync("api/transferencias", modelo);
+
+            if (response.IsSuccessStatusCode)
+            {
+                mensajeExito = "¡Transferencia realizada con éxito!";
+                modelo = new TransferenciaDto(); // Limpiar formulario
+                
+                // Refrescamos los saldos desde la API
+                cuentasDisponibles = await Http.GetFromJsonAsync<CuentaDto[]>($"api/transferencias/cuentas/{clienteLogueadoId}");
+            }
+            else
+            {
+                // Leer el error del JSON (Ej: "Fondos insuficientes")
+                var errorResult = await response.Content.ReadFromJsonAsync<RespuestaError>();
+                mensajeError = errorResult?.Mensaje ?? "Transacción denegada.";
+            }
+        }
+        catch (Exception)
+        {
+            mensajeError = "No se pudo conectar con el servidor bancario.";
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private void Volver()
+    {
+        Navigation.NavigateTo("/mi-resumen");
+    }
+
+    // Clase auxiliar rápida para leer el mensaje de error del JSON
+    private class RespuestaError { public string Mensaje { get; set; } }
+}

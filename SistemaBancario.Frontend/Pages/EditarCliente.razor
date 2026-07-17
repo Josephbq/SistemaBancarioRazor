@@ -1,0 +1,149 @@
+﻿@page "/clientes/editar/{Id:int}"
+@using SistemaBancario.Frontend.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow border-0 rounded-4">
+                <div class="card-header bg-primary text-white py-3 border-0 rounded-top-4">
+                    <h4 class="mb-0 fw-bold"><i class="bi bi-pencil-square"></i> Actualizar Datos del Cliente</h4>
+                    <small class="text-white-50">Modificación de registros ASFI</small>
+                </div>
+                
+                <div class="card-body p-4 bg-light">
+                    @if (cargando)
+                    {
+                        <div class="text-center my-4"><div class="spinner-border text-primary"></div></div>
+                    }
+                    else if (!string.IsNullOrEmpty(mensajeError) && clienteAEditar == null)
+                    {
+                        <div class="alert alert-danger">@mensajeError</div>
+                        <button class="btn btn-outline-secondary mt-3" @onclick="Cancelar">Volver</button>
+                    }
+                    else
+                    {
+                        @if (!string.IsNullOrEmpty(mensajeError))
+                        {
+                            <div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill"></i> @mensajeError</div>
+                        }
+
+                        <EditForm Model="@clienteAEditar" OnValidSubmit="GuardarCambios">
+                            <DataAnnotationsValidator />
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Nombres</label>
+                                    <InputText @bind-Value="clienteAEditar.Nombres" class="form-control" />
+                                    <ValidationMessage For="@(() => clienteAEditar.Nombres)" class="text-danger small" />
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Apellidos</label>
+                                    <InputText @bind-Value="clienteAEditar.Apellidos" class="form-control" />
+                                    <ValidationMessage For="@(() => clienteAEditar.Apellidos)" class="text-danger small" />
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Documento de Identidad (C.I.)</label>
+                                    <!-- En muchos bancos, el CI no se puede editar tan fácil, pero lo dejamos habilitado para el ejemplo -->
+                                    <InputText @bind-Value="clienteAEditar.DocumentoIdentidad" class="form-control" />
+                                    <ValidationMessage For="@(() => clienteAEditar.DocumentoIdentidad)" class="text-danger small" />
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Estado de la Cuenta</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <InputCheckbox @bind-Value="clienteAEditar.Activo" class="form-check-input" id="estadoSwitch" />
+                                        <label class="form-check-label fw-semibold text-@(clienteAEditar.Activo ? "success" : "danger")" for="estadoSwitch">
+                                            @(clienteAEditar.Activo ? "Cliente Activo" : "Cuenta Suspendida")
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                                <button type="button" class="btn btn-outline-secondary btn-lg" @onclick="Cancelar">Cancelar</button>
+                                <button type="submit" class="btn btn-primary btn-lg shadow-sm" disabled="@procesando">
+                                    @if (procesando)
+                                    {
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    }
+                                    else
+                                    {
+
+                                        <i class="bi bi-save"></i>
+                                        <span>Guardar Cambios</span>
+                                    }
+                                </button>
+                            </div>
+                        </EditForm>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Este parámetro captura el ID de la URL
+    [Parameter]
+    public int Id { get; set; }
+
+    private ClienteDto clienteAEditar;
+    private string mensajeError = "";
+    private bool cargando = true;
+    private bool procesando = false;
+
+    // Al cargar la página, vamos a la API a buscar los datos actuales del cliente
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            clienteAEditar = await Http.GetFromJsonAsync<ClienteDto>($"api/clientes/{Id}");
+        }
+        catch (Exception)
+        {
+            mensajeError = "No se pudo cargar la información del cliente. Es posible que no exista.";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task GuardarCambios()
+    {
+        procesando = true;
+        mensajeError = "";
+
+        try
+        {
+            // Enviamos el PUT a la API con los datos modificados
+            var response = await Http.PutAsJsonAsync($"api/clientes/{Id}", clienteAEditar);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/clientes");
+            }
+            else
+            {
+                mensajeError = "Error al actualizar los datos en el servidor.";
+            }
+        }
+        catch (Exception)
+        {
+            mensajeError = "Error de conexión con el servidor bancario.";
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private void Cancelar()
+    {
+        Navigation.NavigateTo("/clientes");
+    }
+}
